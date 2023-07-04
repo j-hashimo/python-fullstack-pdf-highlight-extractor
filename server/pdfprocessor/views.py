@@ -1,7 +1,8 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .models import PDFDocument
+from .models import PDF
 from .utils import extract_highlights
+from django.utils.datastructures import MultiValueDictKeyError
 
 
 @csrf_exempt
@@ -12,21 +13,22 @@ def upload_pdf(request):
         except MultiValueDictKeyError:
             return JsonResponse({'error': 'No file included in request'}, status=400)
 
-        document = PDFDocument.objects.create(file=pdf_file)
+        pdf = PDF.objects.create(file=pdf_file)
 
         # This calls the function from utils.py
-        highlights = extract_highlights(document.file.path)
+        highlights = extract_highlights(pdf.file.path)
 
-        document.highlights = highlights
-        document.save()
+        pdf.highlights = highlights
+        pdf.save()
+        print(PDF.objects.get(id=pdf.id).highlights)
 
-        return JsonResponse({'id': document.id, 'highlights': highlights})
+        return JsonResponse({'id': pdf.id, 'highlights': highlights})
 
     return JsonResponse({'error': 'Invalid method'}, status=405)
 
 
 def get_highlights(request, pdf_id):  # Renamed the function
-    document = PDFDocument.objects.get(pk=pdf_id)
+    pdf = PDF.objects.get(pk=pdf_id)
     # This calls the function from utils.py
-    highlights = extract_highlights(document.file.path)
+    highlights = extract_highlights(pdf.file.path)
     return JsonResponse({'highlights': highlights})
