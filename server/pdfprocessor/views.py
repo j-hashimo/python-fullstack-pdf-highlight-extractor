@@ -1,8 +1,12 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .models import PDF
-from .utils import extract_highlights
 from django.utils.datastructures import MultiValueDictKeyError
+from .utils import extract_highlights
+from .firebase_init import bucket
+import datetime
+import os
+import tempfile
+from firebase_admin import storage
 
 
 @csrf_exempt
@@ -13,22 +17,57 @@ def upload_pdf(request):
         except MultiValueDictKeyError:
             return JsonResponse({'error': 'No file included in request'}, status=400)
 
-        pdf = PDF.objects.create(file=pdf_file)
+        # Temporary save input file to disk to perform pdf extraction
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            for chunk in pdf_file.chunks():
+                tmp.write(chunk)
+            tmp.flush()
+            os.fsync(tmp.fileno())  # Ensure file is written to disk
 
         # This calls the function from utils.py
-        highlights = extract_highlights(pdf.file.path)
+        highlights = extract_highlights(tmp.name)
 
-        pdf.highlights = highlights
-        pdf.save()
-        print(PDF.objects.get(id=pdf.id).highlights)
+        os.unlink(tmp.name)  # Ensure the temporary file is deleted
 
-        return JsonResponse({'id': pdf.id, 'highlights': highlights})
+        formatted_now = datetime.datetime.now().strftime(
+            '%Y-%m-%d')  # changed date format
+        blob = bucket.blob(f"{pdf_file.name}_{formatted_now}.pdf")
+
+        # Go back to the beginning of the in-memory file
+        pdf_file.seek(0)
+
+        blob.upload_from_file(pdf_file, content_type=pdf_file.content_type)
+        print(blob.public_url)
+
+        return JsonResponse({'highlights': highlights})
 
     return JsonResponse({'error': 'Invalid method'}, status=405)
 
 
 def get_highlights(request, pdf_id):  # Renamed the function
-    pdf = PDF.objects.get(pk=pdf_id)
-    # This calls the function from utils.py
-    highlights = extract_highlights(pdf.file.path)
-    return JsonResponse({'highlights': highlights})
+    # This function should be updated to fetch PDFs from Firebase
+    pass
+
+
+def get_all_pdfs(request):
+    bucket = storage.bucket()
+    blobs = bucket.list_blobs()
+
+    pdfs = []
+    for blob in blobs:
+        if '_' in blob.name:
+            name, date = blob.name.rsplit('_', 1)
+            date = date.rstrip('.pdf')
+            date = datetime.datetime.strptime(
+                date, '%Y-%m-%d').strftime('%B %d, %Y')  # changed date format
+        else:
+            name = blob.name
+            date = "Date not available"
+
+        pdfs.append({
+            "name": name,
+            "date": date,
+            "url": blob.generate_signed_url(datetime.timedelta(seconds=300), method='GET')
+        })
+
+    return JsonResponse({"pdfs": pdfs})

@@ -52,6 +52,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
 ]
+# in a production setting, you should specify the allowed origins
+CORS_ORIGIN_ALLOW_ALL = True
 
 ROOT_URLCONF = 'pdf_highlight_extractor.urls'
 

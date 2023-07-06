@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const HighlightViewComponent = () => {
     const location = useLocation();
@@ -13,6 +14,7 @@ const HighlightViewComponent = () => {
                     <p key={index}>{highlight}</p>
                 ))}
             </div>
+            <Link to="/pdfview" className="mt-8 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded">View and Download PDFs</Link>
         </div>
     );
 };
