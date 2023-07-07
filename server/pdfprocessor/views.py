@@ -7,6 +7,7 @@ import datetime
 import os
 import tempfile
 from firebase_admin import storage
+from urllib.parse import unquote
 
 
 @csrf_exempt
@@ -57,9 +58,9 @@ def get_all_pdfs(request):
     for blob in blobs:
         if '_' in blob.name:
             name, date = blob.name.rsplit('_', 1)
-            date = date.rstrip('.pdf')
+            formatted_date = date.rstrip('.pdf')
             date = datetime.datetime.strptime(
-                date, '%Y-%m-%d').strftime('%B %d, %Y')  # changed date format
+                formatted_date, '%Y-%m-%d').strftime('%B %d, %Y')
         else:
             name = blob.name
             date = "Date not available"
@@ -67,7 +68,22 @@ def get_all_pdfs(request):
         pdfs.append({
             "name": name,
             "date": date,
+            "original_name": blob.name,
             "url": blob.generate_signed_url(datetime.timedelta(seconds=300), method='GET')
         })
 
     return JsonResponse({"pdfs": pdfs})
+
+
+@csrf_exempt
+def delete_pdf(request, pdf_name):
+    if request.method == 'DELETE':
+        bucket = storage.bucket()
+        pdf_name = unquote(pdf_name)
+        blob = bucket.blob(pdf_name)
+        if blob.exists():
+            blob.delete()
+            return JsonResponse({"message": f"'{pdf_name}' successfully deleted"})
+        else:
+            return JsonResponse({"error": f"No such PDF '{pdf_name}' found"}, status=404)
+    return JsonResponse({'error': 'Invalid method'}, status=405)
