@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import upload_pdf, get_highlights, get_all_pdfs, delete_pdf, delete_highlight, register
+from .views import upload_pdf, get_highlights, get_all_pdfs, delete_pdf, delete_highlight, register, login
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -12,4 +12,5 @@ urlpatterns = [
     path('delete_highlight/<str:highlight_name>/',
          delete_highlight, name='delete-highlight'),
     path('register/', register, name="register"),
+    path('login/', login, name='login'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

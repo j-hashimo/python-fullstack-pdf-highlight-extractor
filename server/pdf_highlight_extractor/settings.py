@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'pdfprocessor',
     'corsheaders',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [

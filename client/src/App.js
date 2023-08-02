@@ -5,16 +5,22 @@ import UploadComponent from './components/UploadComponent';
 import HighlightViewComponent from './components/HighlightViewComponent';
 import PDFList from './components/PdfView';
 import Register from './components/Register';
+import Login from './components/Login';
+import { ToastProvider } from 'react-toast-notifications';
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<HomePage/>} />
-      <Route path="/upload" element={<UploadComponent/>} />
-      <Route path="/view" element={<HighlightViewComponent/>} />
-      <Route path="/pdfview" element={<PDFList/>} />
-      <Route path="/register" element={<Register/>} />
-    </Routes>
+    <ToastProvider>
+      <Routes>
+        <Route path="/" element={<HomePage/>} />
+        <Route path="/upload" element={<UploadComponent/>} />
+        <Route path="/view" element={<HighlightViewComponent/>} />
+        <Route path="/pdfview" element={<PDFList/>} />
+        <Route path="/register" element={<Register/>} />
+        <Route path="/login" element={<Login/>} />
+      </Routes>
+    </ToastProvider>
+    
   );
 }
 
