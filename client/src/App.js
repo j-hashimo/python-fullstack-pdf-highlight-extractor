@@ -1,9 +1,10 @@
-import { Routes, Route, Link } from "react-router-dom";
+import { Routes, Route} from "react-router-dom";
 import React from 'react';
 import HomePage from './components/HomePage';
 import UploadComponent from './components/UploadComponent';
 import HighlightViewComponent from './components/HighlightViewComponent';
 import PDFList from './components/PdfView';
+import Register from './components/Register';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
       <Route path="/upload" element={<UploadComponent/>} />
       <Route path="/view" element={<HighlightViewComponent/>} />
       <Route path="/pdfview" element={<PDFList/>} />
+      <Route path="/register" element={<Register/>} />
     </Routes>
   );
 }
