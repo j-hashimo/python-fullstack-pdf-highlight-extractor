@@ -1,7 +1,7 @@
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.datastructures import MultiValueDictKeyError
-from .utils import extract_highlights
+from .utils import extract_highlights, extract_images_from_pdf
 from .firebase_init import bucket
 import datetime
 import os
@@ -10,6 +10,17 @@ from firebase_admin import storage
 from urllib.parse import unquote
 from django.contrib.auth.models import User
 import json
+
+import os
+from dotenv import load_dotenv
+from django.http import JsonResponse
+from django.utils.datastructures import MultiValueDictKeyError
+import datetime
+import tempfile
+import fitz  # PyMuPDF
+from google.cloud import storage
+from PIL import Image
+import io
 
 from django.contrib.auth import authenticate
 from django.views.decorators.csrf import csrf_exempt
@@ -38,7 +49,7 @@ def upload_pdf(request):
             tmp.flush()
             os.fsync(tmp.fileno())  # Ensure file is written to disk
 
-        # This calls the function from utils.py
+        # Extract highlights
         highlights = extract_highlights(tmp.name)
 
         os.unlink(tmp.name)  # Ensure the temporary file is deleted
@@ -49,16 +60,12 @@ def upload_pdf(request):
 
         # Go back to the beginning of the in-memory file
         pdf_file.seek(0)
-
         blob.upload_from_file(pdf_file, content_type=pdf_file.content_type)
-        print(blob.public_url)
 
-        # new code: save highlights to txt and upload to Firebase
         highlights_file_name = f"{pdf_file.name}_{formatted_now}_highlights.txt"
         highlights_blob = bucket.blob(highlights_file_name)
         highlights_blob.upload_from_string('\n'.join(highlights))
 
-        # added 'pdf_name': pdf_file.name to the JsonResponse
         return JsonResponse({
             'highlights': highlights,
             'pdf_name': pdf_file.name,
@@ -172,3 +179,56 @@ def login(request):
     # e.g., link it with the corresponding Django user
 
     return Response({'detail': 'Success'}, status=HTTP_200_OK)
+
+
+@csrf_exempt
+def upload_pdf_for_images(request):
+    if request.method == 'POST':
+        try:
+            pdf_file = request.FILES['file']
+        except MultiValueDictKeyError:
+            return JsonResponse({'error': 'No file included in request'}, status=400)
+
+        # Temporary save input file to disk to perform pdf extraction
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            for chunk in pdf_file.chunks():
+                tmp.write(chunk)
+            tmp.flush()
+            os.fsync(tmp.fileno())  # Ensure file is written to disk
+
+        # Extract images from the PDF and save them into a list
+        with fitz.open(tmp.name) as doc:  # Using a context manager here
+            images = []
+            for page_num, page in enumerate(doc):
+                image_list = page.get_images(full=True)
+                for img_index, img in enumerate(image_list):
+                    xref = img[0]
+                    base_image = doc.extract_image(xref)
+                    image_bytes = base_image["image"]
+
+                    # Convert image bytes to an Image object (from PIL)
+                    image = Image.open(io.BytesIO(image_bytes))
+                    images.append(image)
+
+        # Validate if there are images inside the PDF
+        if not images:
+            os.unlink(tmp.name)  # Ensure the temporary file is deleted
+            return JsonResponse({'error': 'No images found in the provided PDF.'}, status=400)
+
+        # Combine all images into a single PDF
+        combined_pdf_name = f"{pdf_file.name}_combined_images.pdf"
+        with io.BytesIO() as output:
+            images[0].save(output, format="PDF", save_all=True,
+                           append_images=images[1:])
+            combined_pdf_blob = bucket.blob(combined_pdf_name)
+            combined_pdf_blob.upload_from_string(
+                output.getvalue(), content_type='application/pdf')
+
+        os.unlink(tmp.name)  # Ensure the temporary file is deleted
+
+        return JsonResponse({
+            'pdf_name': pdf_file.name,
+            'combined_pdf_url': combined_pdf_blob.generate_signed_url(datetime.timedelta(seconds=300), method='GET')
+        })
+
+    return JsonResponse({'error': 'Invalid method'}, status=405)

@@ -6,8 +6,9 @@ import HighlightViewComponent from './components/HighlightViewComponent';
 import PDFList from './components/PdfView';
 import Register from './components/Register';
 import Login from './components/Login';
+import UploadForImages from './components/UploadForImages';
 import { ToastProvider } from 'react-toast-notifications';
-
+import DownloadHighlights from './components/DownloadHighlights';
 function App() {
   return (
     <ToastProvider>
@@ -18,6 +19,7 @@ function App() {
         <Route path="/pdfview" element={<PDFList/>} />
         <Route path="/register" element={<Register/>} />
         <Route path="/login" element={<Login/>} />
+        <Route path="/upload_for_images" element={<UploadForImages/>} />
       </Routes>
     </ToastProvider>
     
