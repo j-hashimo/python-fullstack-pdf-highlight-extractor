@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import upload_pdf, get_highlights, get_all_pdfs, delete_pdf, delete_highlight, register, login, upload_pdf_for_images
+from .views import upload_pdf, get_highlights, get_all_pdfs, delete_pdf, delete_highlight, upload_pdf_for_images
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -11,8 +11,7 @@ urlpatterns = [
     path('delete/<str:pdf_name>/', delete_pdf, name='delete-pdf'),
     path('delete_highlight/<str:highlight_name>/',
          delete_highlight, name='delete-highlight'),
-    path('register/', register, name="register"),
-    path('login/', login, name='login'),
+
     path('upload_for_images/', upload_pdf_for_images,
          name='upload_pdf_for_images'),
 

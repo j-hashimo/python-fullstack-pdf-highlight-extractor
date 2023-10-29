@@ -18,7 +18,7 @@ from django.utils.datastructures import MultiValueDictKeyError
 import datetime
 import tempfile
 import fitz  # PyMuPDF
-from google.cloud import storage
+
 from PIL import Image
 import io
 
@@ -49,7 +49,7 @@ def upload_pdf(request):
             tmp.flush()
             os.fsync(tmp.fileno())  # Ensure file is written to disk
 
-        # Extract highlights
+        # This calls the function from utils.py
         highlights = extract_highlights(tmp.name)
 
         os.unlink(tmp.name)  # Ensure the temporary file is deleted
@@ -60,19 +60,11 @@ def upload_pdf(request):
 
         # Go back to the beginning of the in-memory file
         pdf_file.seek(0)
+
         blob.upload_from_file(pdf_file, content_type=pdf_file.content_type)
+        print(blob.public_url)
 
-        highlights_file_name = f"{pdf_file.name}_{formatted_now}_highlights.txt"
-        highlights_blob = bucket.blob(highlights_file_name)
-        highlights_blob.upload_from_string('\n'.join(highlights))
-
-        return JsonResponse({
-            'highlights': highlights,
-            'pdf_name': pdf_file.name,
-            'pdf_url': blob.generate_signed_url(datetime.timedelta(seconds=300), method='GET'),
-            'highlights_file_name': highlights_file_name,
-            'highlights_url': highlights_blob.generate_signed_url(datetime.timedelta(seconds=300), method='GET')
-        })
+        return JsonResponse({'highlights': highlights})
 
     return JsonResponse({'error': 'Invalid method'}, status=405)
 
@@ -87,33 +79,30 @@ def get_all_pdfs(request):
     blobs = bucket.list_blobs()
 
     pdfs = []
-    highlights = []
     for blob in blobs:
-        file_name, file_extension = os.path.splitext(blob.name)
-        if file_extension == '.pdf':
-            if '_' in file_name:
-                name, date = file_name.rsplit('_', 1)
-                date = date.rstrip('.pdf')
-                date = datetime.datetime.strptime(
-                    date, '%Y-%m-%d').strftime('%B %d, %Y')
-            else:
-                name = file_name
+        if '_' in blob.name:
+            name, date = blob.name.rsplit('_', 1)
+            formatted_date = date.rstrip('.pdf')
+            # Check if the formatted_date is actually in '%Y-%m-%d' format
+            try:
+                parsed_date = datetime.datetime.strptime(
+                    formatted_date, '%Y-%m-%d')
+                date = parsed_date.strftime('%B %d, %Y')
+            except ValueError:
+                # If the date isn't in the expected format, handle accordingly
                 date = "Date not available"
-            pdfs.append({
-                "name": name,
-                "date": date,
-                "url": blob.generate_signed_url(datetime.timedelta(seconds=300), method='GET'),
-                "original_name": blob.name,
-            })
-        elif file_extension == '.txt':
-            highlights.append({
-                "highlights_file_name": blob.name,
-                "highlights_url": blob.generate_signed_url(datetime.timedelta(seconds=300), method='GET'),
-                # strip the _highlights.txt part from the name
-                "pdf_name": blob.name.replace("_highlights.txt", ""),
-            })
+        else:
+            name = blob.name
+            date = "Date not available"
 
-    return JsonResponse({"pdfs": pdfs, "highlights": highlights})
+        pdfs.append({
+            "name": name,
+            "date": date,
+            "original_name": blob.name,
+            "url": blob.generate_signed_url(datetime.timedelta(seconds=300), method='GET')
+        })
+
+    return JsonResponse({"pdfs": pdfs})
 
 
 @csrf_exempt
@@ -142,43 +131,6 @@ def delete_highlight(request, highlight_name):
         else:
             return JsonResponse({"error": f"No such highlight '{highlight_name}' found"}, status=404)
     return JsonResponse({'error': 'Invalid method'}, status=405)
-
-
-@csrf_exempt
-def register(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        username = data.get('username')
-        password = data.get('password')
-
-        if User.objects.filter(username=username).exists():
-            return JsonResponse({'message': 'User already exists'}, status=400)
-
-        User.objects.create_user(username=username, password=password)
-        return JsonResponse({'message': 'User registered successfully'}, status=201)
-
-    return JsonResponse({'error': 'Invalid method'}, status=405)
-
-
-@csrf_exempt
-@api_view(["POST"])
-@permission_classes((AllowAny,))
-def login(request):
-    username = request.data.get("username")
-    password = request.data.get("password")
-    uid = request.data.get("uid")
-    if username is None or password is None or uid is None:
-        return Response({'error': 'Please provide both username and password'},
-                        status=HTTP_400_BAD_REQUEST)
-    user = authenticate(username=username, password=password)
-    if not user:
-        return Response({'error': 'Invalid Credentials'},
-                        status=HTTP_404_NOT_FOUND)
-
-    # Here, you can add additional checks or operations with the 'uid' coming from Firebase
-    # e.g., link it with the corresponding Django user
-
-    return Response({'detail': 'Success'}, status=HTTP_200_OK)
 
 
 @csrf_exempt

@@ -1,9 +1,10 @@
 
+
+```
 ```
 python-fullstack-pdf-highlight-extractor
 ├─ client
 │  ├─ .env
-│  ├─ config-overrides.js
 │  ├─ package-lock.json
 │  ├─ package.json
 │  ├─ public
@@ -23,20 +24,18 @@ python-fullstack-pdf-highlight-extractor
 │  │  │  ├─ firebase.js
 │  │  │  ├─ HighlightViewComponent.js
 │  │  │  ├─ HomePage.js
-│  │  │  ├─ Login.js
 │  │  │  ├─ PdfView.js
-│  │  │  ├─ Register.js
-│  │  │  └─ UploadComponent.js
+│  │  │  ├─ UploadComponent.js
+│  │  │  └─ UploadForImages.js
 │  │  ├─ index.css
 │  │  └─ index.js
 │  └─ tailwind.config.js
+├─ README.md
 └─ server
    ├─ .env
    ├─ db.sqlite3
-   ├─ documents
+   ├─ debug.log
    ├─ manage.py
-   ├─ media
-   │  └─ pdfs
    ├─ pdf-extractor-firebase-key.json
    ├─ pdfprocessor
    │  ├─ admin.py
@@ -45,11 +44,15 @@ python-fullstack-pdf-highlight-extractor
    │  ├─ migrations
    │  │  ├─ 0001_initial.py
    │  │  ├─ 0002_pdf_delete_pdfdocument.py
+   │  │  ├─ 0003_pdf_user_userprofile.py
+   │  │  ├─ 0004_alter_pdf_user_alter_userprofile_user.py
    │  │  ├─ __init__.py
    │  │  └─ __pycache__
    │  │     ├─ 0001_initial.cpython-310.pyc
    │  │     ├─ 0002_pdf_delete_pdfdocument.cpython-310.pyc
+   │  │     ├─ 0003_pdf_user_userprofile.cpython-310.pyc
    │  │     ├─ 0003_pdf_user_userprofile_highlight.cpython-310.pyc
+   │  │     ├─ 0004_alter_pdf_user_alter_userprofile_user.cpython-310.pyc
    │  │     └─ __init__.cpython-310.pyc
    │  ├─ models.py
    │  ├─ tests.py
@@ -62,6 +65,8 @@ python-fullstack-pdf-highlight-extractor
    │     ├─ apps.cpython-310.pyc
    │     ├─ decorators.cpython-310.pyc
    │     ├─ firebase_init.cpython-310.pyc
+   │     ├─ firebase_middleware.cpython-310.pyc
+   │     ├─ firebase_utils.cpython-310.pyc
    │     ├─ models.cpython-310.pyc
    │     ├─ urls.cpython-310.pyc
    │     ├─ utils.cpython-310.pyc
@@ -74,6 +79,7 @@ python-fullstack-pdf-highlight-extractor
       ├─ wsgi.py
       ├─ __init__.py
       └─ __pycache__
+         ├─ firebase_setup.cpython-310.pyc
          ├─ settings.cpython-310.pyc
          ├─ urls.cpython-310.pyc
          ├─ wsgi.cpython-310.pyc

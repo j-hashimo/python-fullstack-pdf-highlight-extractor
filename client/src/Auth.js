@@ -1,27 +1,20 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth } from './components/firebase'; // Import from your firebase.js file
-import { onAuthStateChanged } from '@firebase/auth';
+import React, { createContext, useEffect, useState } from 'react';
+import { auth } from './firebaseConfig';
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+    auth.onAuthStateChanged((user) => {
+      setCurrentUser(user);
     });
-
-    return () => unsubscribe();
   }, []);
 
-  return <AuthContext.Provider value={user}>{children}</AuthContext.Provider>;
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  return (
+    <AuthContext.Provider value={{ currentUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
