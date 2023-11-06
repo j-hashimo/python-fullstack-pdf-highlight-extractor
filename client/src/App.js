@@ -11,13 +11,30 @@ import DownloadHighlights from './components/DownloadHighlights';
 import { useState, useEffect } from 'react';
 import { auth } from './components/firebase';
 
+import FirebaseUIAuth from './components/FirebaseUIAuth';
+import { onAuthStateChanged } from 'firebase/auth';
 
 
 function App() {
+
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
+    });
+  }, []);
   return (
+
+
     <ToastProvider>
       <Routes>
-        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<FirebaseUIAuth />} />
+        <Route path="/" element={isAuthenticated ? <HomePage /> : <Navigate to="/login" />} />
         
         
         <Route path="/upload" element={<UploadComponent />} />

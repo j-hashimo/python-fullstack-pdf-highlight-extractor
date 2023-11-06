@@ -1,10 +1,46 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
+import { getAuth } from 'firebase/auth';
 
 const HighlightViewComponent = () => {
     const location = useLocation();
-    const highlights = location.state.highlights;
+    const { highlights, pdfTitle } = location.state; // Destructure pdfTitle from state
+    const auth = getAuth();
+    console.log("PDF Title: ", pdfTitle); // Add this line to check the value of pdfTitle
+    const saveHighlightsToFile = async () => {
+        const title = pdfTitle || 'default_title'; // Provide a default value if pdfTitle is not set
+        // ... existing code to save highlights ...
+        // Convert highlights to a string
+        const highlightsText = highlights.join('\n');
+        
+        // Convert text to a Blob
+        const blob = new Blob([highlightsText], { type: 'text/plain' });
+
+        // Create a FormData object to send the file
+        const formData = new FormData();
+        formData.append('file', blob);
+        formData.append('title', pdfTitle); // Use pdfTitle when appending to FormData
+
+
+        try {
+            const idToken = await auth.currentUser.getIdToken(true);
+            const response = await axios.post('http://localhost:8000/pdf/highlights/upload/', formData, {
+                headers: {
+                    'Authorization': `Bearer ${idToken}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            // Handle the response from the server
+            console.log(response.data);
+            alert('Highlights saved successfully!');
+        } catch (error) {
+            console.error("Error saving highlights: ", error);
+            alert('Failed to save highlights.');
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-900 text-white p-10">
@@ -15,7 +51,12 @@ const HighlightViewComponent = () => {
                 ))}
             </div>
             <div className="mt-8">
-                <Link to="/pdfview" className="mt-8 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded">View and Download PDFs</Link>
+                <button onClick={saveHighlightsToFile} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded">
+                    Save Highlights
+                </button>
+                <Link to="/pdfview" className="ml-4 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded">
+                    View and Download PDFs
+                </Link>
             </div>
         </div>
     );

@@ -1,3 +1,4 @@
+import logging
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.datastructures import MultiValueDictKeyError
@@ -33,9 +34,38 @@ from rest_framework.status import (
     HTTP_200_OK
 )
 
+from .firebase_utils import verify_firebase_token
+
 
 @csrf_exempt
 def upload_pdf(request):
+    # Get the ID token from the request header
+    auth_header = request.META.get('HTTP_AUTHORIZATION')
+    if auth_header:
+        # Split the header into 'Bearer' and the token
+        parts = auth_header.split()
+        if parts[0].lower() != 'bearer':
+            return JsonResponse({'error': 'Authorization header must start with Bearer'}, status=401)
+        elif len(parts) == 1:
+            return JsonResponse({'error': 'Token not found'}, status=401)
+        elif len(parts) > 2:
+            return JsonResponse({'error': 'Authorization header must be Bearer token'}, status=401)
+
+        id_token = parts[1]
+    else:
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+
+    try:
+        # Verify the token
+        decoded_token = verify_firebase_token(id_token)
+        if not decoded_token:
+            return JsonResponse({'error': 'Invalid token'}, status=401)
+        # Correctly using the decoded token to get the user ID
+        user_id = decoded_token['uid']
+    except Exception as e:
+        # Handle any other exceptions
+        return JsonResponse({'error': f'Error verifying Firebase token: {str(e)}'}, status=401)
+
     if request.method == 'POST':
         try:
             pdf_file = request.FILES['file']
@@ -54,9 +84,8 @@ def upload_pdf(request):
 
         os.unlink(tmp.name)  # Ensure the temporary file is deleted
 
-        formatted_now = datetime.datetime.now().strftime(
-            '%Y-%m-%d')  # changed date format
-        blob = bucket.blob(f"{pdf_file.name}_{formatted_now}.pdf")
+        formatted_now = datetime.datetime.now().strftime('%Y-%m-%d')
+        blob = bucket.blob(f"{user_id}/{pdf_file.name}_{formatted_now}.pdf")
 
         # Go back to the beginning of the in-memory file
         pdf_file.seek(0)
@@ -71,70 +100,134 @@ def upload_pdf(request):
 
 def get_highlights(request, pdf_id):  # Renamed the function
     # This function should be updated to fetch PDFs from Firebase
+    # Get the ID token from the request header
+    id_token = request.headers.get('Authorization')
+    if not id_token or not verify_firebase_token(id_token):
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
     pass
 
 
 def get_all_pdfs(request):
+    # Get the ID token from the request header
+    auth_header = request.META.get('HTTP_AUTHORIZATION')
+    if auth_header:
+        # Split the header into 'Bearer' and the token
+        parts = auth_header.split()
+        if parts[0].lower() != 'bearer' or len(parts) != 2:
+            return JsonResponse({'error': 'Invalid Authorization header format'}, status=401)
+        id_token = parts[1]
+    else:
+        return JsonResponse({'error': 'No Authorization header'}, status=401)
+
+    user_info = verify_firebase_token(id_token)
+    if not user_info:
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+
+    user_id = user_info['uid']
     bucket = storage.bucket()
-    blobs = bucket.list_blobs()
+    blobs = bucket.list_blobs(prefix=f"{user_id}/")
 
     pdfs = []
     for blob in blobs:
-        if '_' in blob.name:
-            name, date = blob.name.rsplit('_', 1)
+        # Add a condition to skip non-PDF files
+        if not blob.name.endswith('.pdf'):
+            continue
+        # Extract the filename without the user_id from the blob's name
+        _, filename = blob.name.rsplit('/', 1)
+        if '_' in filename:
+            name, date = filename.rsplit('_', 1)
             formatted_date = date.rstrip('.pdf')
-            # Check if the formatted_date is actually in '%Y-%m-%d' format
             try:
-                parsed_date = datetime.datetime.strptime(
-                    formatted_date, '%Y-%m-%d')
+                parsed_date = datetime.datetime.strptime(formatted_date, '%Y-%m-%d')
                 date = parsed_date.strftime('%B %d, %Y')
             except ValueError:
-                # If the date isn't in the expected format, handle accordingly
                 date = "Date not available"
         else:
-            name = blob.name
+            name = filename
             date = "Date not available"
 
+        # Append only the filename to the pdfs list, without the user_id
         pdfs.append({
             "name": name,
             "date": date,
-            "original_name": blob.name,
+            "original_name": filename,  # This now has only the filename without the user_id
             "url": blob.generate_signed_url(datetime.timedelta(seconds=300), method='GET')
         })
 
     return JsonResponse({"pdfs": pdfs})
 
 
+
+
+
 @csrf_exempt
 def delete_pdf(request, pdf_name):
+    # Handle preflight requests
+    if request.method == 'OPTIONS':
+        response = JsonResponse({'detail': 'OK'})
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'DELETE, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
+        return response
+    
+    # Handle DELETE requests
     if request.method == 'DELETE':
-        bucket = storage.bucket()
+        # Extract the ID token from the Authorization header
+        id_token = request.headers.get('Authorization')
+        if not id_token or not id_token.startswith('Bearer '):
+            
+            return JsonResponse({'error': 'Unauthorized - No token provided'}, status=401)
+
+        _, id_token = id_token.split(' ', 1)
+        user_info = verify_firebase_token(id_token)
+        if not user_info:
+            
+            return JsonResponse({'error': 'Unauthorized - Token invalid'}, status=401)
+
+        user_id = user_info['uid']
         pdf_name = unquote(pdf_name)
-        blob = bucket.blob(pdf_name)
+
+        # Construct the full blob path including the user ID
+        blob_path = f"{user_id}/{pdf_name}"
+        
+
+        # Ensure the blob path includes the user ID
+        bucket = storage.bucket()
+        blob = bucket.blob(blob_path)
         if blob.exists():
             blob.delete()
+            
             return JsonResponse({"message": f"'{pdf_name}' successfully deleted"})
         else:
+            
             return JsonResponse({"error": f"No such PDF '{pdf_name}' found"}, status=404)
+
+    # If the method is not DELETE or OPTIONS
+    
     return JsonResponse({'error': 'Invalid method'}, status=405)
 
-
-@csrf_exempt
-def delete_highlight(request, highlight_name):
-    if request.method == 'DELETE':
-        bucket = storage.bucket()
-        highlight_name = unquote(highlight_name)
-        blob = bucket.blob(highlight_name)
-        if blob.exists():
-            blob.delete()
-            return JsonResponse({"message": f"'{highlight_name}' successfully deleted"})
-        else:
-            return JsonResponse({"error": f"No such highlight '{highlight_name}' found"}, status=404)
-    return JsonResponse({'error': 'Invalid method'}, status=405)
 
 
 @csrf_exempt
 def upload_pdf_for_images(request):
+    # Get the ID token from the request header
+    auth_header = request.META.get('HTTP_AUTHORIZATION')
+    id_token = None
+    if auth_header and auth_header.startswith('Bearer '):
+        id_token = auth_header.split('Bearer ')[1]
+    else:
+        return JsonResponse({'error': 'Unauthorized - Token missing or invalid'}, status=401)
+
+    try:
+        # Verify the token
+        user_info = verify_firebase_token(id_token)
+        if not user_info:
+            return JsonResponse({'error': 'Invalid token - Verification failed'}, status=401)
+        user_id = user_info['uid']  # Unique identifier for the user
+    except Exception as e:
+        # Handle any other exceptions
+        return JsonResponse({'error': f'Error verifying Firebase token: {str(e)}'}, status=401)
+
     if request.method == 'POST':
         try:
             pdf_file = request.FILES['file']
@@ -149,7 +242,7 @@ def upload_pdf_for_images(request):
             os.fsync(tmp.fileno())  # Ensure file is written to disk
 
         # Extract images from the PDF and save them into a list
-        with fitz.open(tmp.name) as doc:  # Using a context manager here
+        with fitz.open(tmp.name) as doc:
             images = []
             for page_num, page in enumerate(doc):
                 image_list = page.get_images(full=True)
@@ -157,18 +250,17 @@ def upload_pdf_for_images(request):
                     xref = img[0]
                     base_image = doc.extract_image(xref)
                     image_bytes = base_image["image"]
-
-                    # Convert image bytes to an Image object (from PIL)
+                    # Convert image bytes to an Image object
                     image = Image.open(io.BytesIO(image_bytes))
                     images.append(image)
 
         # Validate if there are images inside the PDF
         if not images:
             os.unlink(tmp.name)  # Ensure the temporary file is deleted
-            return JsonResponse({'error': 'No images found in the provided PDF.'}, status=400)
+            return JsonResponse({'error': 'No images found in the provided PDF'}, status=400)
 
         # Combine all images into a single PDF
-        combined_pdf_name = f"{pdf_file.name}_combined_images.pdf"
+        combined_pdf_name = f"{user_id}/{pdf_file.name}_combined_images.pdf"
         with io.BytesIO() as output:
             images[0].save(output, format="PDF", save_all=True,
                            append_images=images[1:])
@@ -182,5 +274,102 @@ def upload_pdf_for_images(request):
             'pdf_name': pdf_file.name,
             'combined_pdf_url': combined_pdf_blob.generate_signed_url(datetime.timedelta(seconds=300), method='GET')
         })
+
+    return JsonResponse({'error': 'Invalid method'}, status=405)
+
+
+def get_all_highlights(request):
+    # Authentication check
+    id_token = request.headers.get('Authorization')
+    if not id_token or not id_token.startswith('Bearer '):
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+
+    _, id_token = id_token.split(' ', 1)
+    user_info = verify_firebase_token(id_token)
+    if not user_info:
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+
+    user_id = user_info['uid']
+    bucket = storage.bucket()
+    # Only list blobs that represent highlight files
+    blobs = bucket.list_blobs(prefix=f"{user_id}/highlights/")
+
+    highlight_files = []
+    for blob in blobs:
+        # Assuming the highlight files are stored with a .txt extension
+        if blob.name.endswith('.txt'):
+            # Get just the file name, not the full path
+            _, highlight_name = blob.name.rsplit('/', 1)
+            highlight_files.append({
+                'name': highlight_name,
+                'url': blob.generate_signed_url(datetime.timedelta(seconds=300), method='GET')
+            })
+
+    return JsonResponse({'highlights': highlight_files})
+
+
+@csrf_exempt
+def delete_highlight(request, highlight_name):
+    # Authentication check
+    id_token = request.headers.get('Authorization')
+    if not id_token or not id_token.startswith('Bearer '):
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+
+    _, id_token = id_token.split(' ', 1)
+    user_info = verify_firebase_token(id_token)
+    if not user_info:
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+
+    user_id = user_info['uid']
+    highlight_name = unquote(highlight_name)
+    bucket = storage.bucket()
+    blob = bucket.blob(f"{user_id}/highlights/{highlight_name}")
+
+    if request.method == 'DELETE':
+        if blob.exists():
+            blob.delete()
+            return JsonResponse({"message": f"'{highlight_name}' successfully deleted"})
+        else:
+            return JsonResponse({"error": f"No such highlight file '{highlight_name}' found"}, status=404)
+    else:
+        return JsonResponse({'error': 'Invalid method'}, status=405)
+
+@csrf_exempt
+def upload_highlights(request):
+    # Authentication check
+    id_token = request.headers.get('Authorization')
+    if not id_token or not id_token.startswith('Bearer '):
+        return JsonResponse({'error': 'Unauthorized - No token provided'}, status=401)
+
+    _, id_token = id_token.split(' ', 1)
+    user_info = verify_firebase_token(id_token)
+    if not user_info:
+        return JsonResponse({'error': 'Unauthorized - Token invalid'}, status=401)
+
+    user_id = user_info['uid']
+
+    if request.method == 'POST':
+        try:
+            # Get the uploaded text file and the title
+            text_file = request.FILES.get('file')
+            title = request.POST.get('title', 'highlights')  # Fallback to 'highlights' if title is not provided
+            
+
+            if not text_file:
+                return JsonResponse({'error': 'No file provided'}, status=400)
+            
+            # Use the title in the file path
+            file_path = f"{user_id}/highlights/{title}.txt"
+            bucket = storage.bucket()
+            blob = bucket.blob(file_path)
+            blob.upload_from_file(text_file, content_type='text/plain')
+
+            # Respond with the URL to access the uploaded file
+            return JsonResponse({
+                'message': 'Highlight file uploaded successfully',
+                'url': blob.public_url
+            })
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Invalid method'}, status=405)

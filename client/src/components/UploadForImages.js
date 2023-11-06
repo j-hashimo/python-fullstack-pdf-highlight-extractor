@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { getAuth } from 'firebase/auth'; // Import getAuth
 
 function UploadForImages() {
     const [file, setFile] = useState(null);
     const [pdfUrl, setPdfUrl] = useState("");
+    const auth = getAuth(); // Get the authentication instance
 
     const onFileChange = (e) => {
         setFile(e.target.files[0]);
@@ -12,11 +14,25 @@ function UploadForImages() {
     const onUpload = async () => {
         const formData = new FormData();
         formData.append('file', file);
-        try {
-            const response = await axios.post("http://localhost:8000/pdf/upload_for_images/", formData);
-            setPdfUrl(response.data.combined_pdf_url);
-        } catch (error) {
-            console.error("Error uploading file:", error);
+        const user = auth.currentUser;
+
+        if (user) {
+            const idToken = await user.getIdToken(true); // Get the ID token
+
+            try {
+                const response = await axios.post("http://localhost:8000/pdf/upload_for_images/", formData, {
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`, // Include the token in the Authorization header
+                    }
+                });
+                setPdfUrl(response.data.combined_pdf_url);
+            } catch (error) {
+                console.error("Error uploading file:", error);
+                // You may want to handle errors differently here
+            }
+        } else {
+            console.error("User not authenticated");
+            // Redirect to login or handle accordingly
         }
     };
 
