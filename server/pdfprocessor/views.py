@@ -11,8 +11,7 @@ from firebase_admin import storage
 from urllib.parse import unquote
 from django.contrib.auth.models import User
 import json
-
-import os
+from datetime import timedelta
 from dotenv import load_dotenv
 from django.http import JsonResponse
 from django.utils.datastructures import MultiValueDictKeyError
@@ -35,6 +34,8 @@ from rest_framework.status import (
 )
 
 from .firebase_utils import verify_firebase_token
+from google.cloud.storage import Blob
+
 
 
 @csrf_exempt
@@ -208,76 +209,6 @@ def delete_pdf(request, pdf_name):
 
 
 
-@csrf_exempt
-def upload_pdf_for_images(request):
-    # Get the ID token from the request header
-    auth_header = request.META.get('HTTP_AUTHORIZATION')
-    id_token = None
-    if auth_header and auth_header.startswith('Bearer '):
-        id_token = auth_header.split('Bearer ')[1]
-    else:
-        return JsonResponse({'error': 'Unauthorized - Token missing or invalid'}, status=401)
-
-    try:
-        # Verify the token
-        user_info = verify_firebase_token(id_token)
-        if not user_info:
-            return JsonResponse({'error': 'Invalid token - Verification failed'}, status=401)
-        user_id = user_info['uid']  # Unique identifier for the user
-    except Exception as e:
-        # Handle any other exceptions
-        return JsonResponse({'error': f'Error verifying Firebase token: {str(e)}'}, status=401)
-
-    if request.method == 'POST':
-        try:
-            pdf_file = request.FILES['file']
-        except MultiValueDictKeyError:
-            return JsonResponse({'error': 'No file included in request'}, status=400)
-
-        # Temporary save input file to disk to perform pdf extraction
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            for chunk in pdf_file.chunks():
-                tmp.write(chunk)
-            tmp.flush()
-            os.fsync(tmp.fileno())  # Ensure file is written to disk
-
-        # Extract images from the PDF and save them into a list
-        with fitz.open(tmp.name) as doc:
-            images = []
-            for page_num, page in enumerate(doc):
-                image_list = page.get_images(full=True)
-                for img_index, img in enumerate(image_list):
-                    xref = img[0]
-                    base_image = doc.extract_image(xref)
-                    image_bytes = base_image["image"]
-                    # Convert image bytes to an Image object
-                    image = Image.open(io.BytesIO(image_bytes))
-                    images.append(image)
-
-        # Validate if there are images inside the PDF
-        if not images:
-            os.unlink(tmp.name)  # Ensure the temporary file is deleted
-            return JsonResponse({'error': 'No images found in the provided PDF'}, status=400)
-
-        # Combine all images into a single PDF
-        combined_pdf_name = f"{user_id}/{pdf_file.name}_combined_images.pdf"
-        with io.BytesIO() as output:
-            images[0].save(output, format="PDF", save_all=True,
-                           append_images=images[1:])
-            combined_pdf_blob = bucket.blob(combined_pdf_name)
-            combined_pdf_blob.upload_from_string(
-                output.getvalue(), content_type='application/pdf')
-
-        os.unlink(tmp.name)  # Ensure the temporary file is deleted
-
-        return JsonResponse({
-            'pdf_name': pdf_file.name,
-            'combined_pdf_url': combined_pdf_blob.generate_signed_url(datetime.timedelta(seconds=300), method='GET')
-        })
-
-    return JsonResponse({'error': 'Invalid method'}, status=405)
-
-
 def get_all_highlights(request):
     # Authentication check
     id_token = request.headers.get('Authorization')
@@ -371,5 +302,134 @@ def upload_highlights(request):
             })
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Invalid method'}, status=405)
+
+@csrf_exempt
+def get_user_images(request):
+    auth_header = request.headers.get('Authorization')
+    print(f"Auth Header: {auth_header}")  # Log the header to debug
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return JsonResponse({'error': 'Unauthorized - Token missing or invalid'}, status=401)
+
+    id_token = auth_header.split('Bearer ')[1]
+    print(f"ID Token: {id_token}")  # Log the token to debug
+    user_info = verify_firebase_token(id_token)
+    if not user_info:
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+
+    user_id = user_info['uid']
+    bucket = storage.bucket()
+
+    prefix = f"{user_id}/"
+    blobs = bucket.list_blobs(prefix=prefix)
+    images = []
+
+    try:
+        for blob in blobs:
+            if isinstance(blob, Blob) and '_combined_images.pdf' in blob.name:
+                signed_url = blob.generate_signed_url(
+                    # This URL will be valid for 1 day
+                    expiration=timedelta(days=1),
+                    # Assuming you want to allow GET requests
+                    method='GET'
+                )
+                images.append({
+                    'name': blob.name[len(prefix):],
+                    'url': signed_url
+                })
+            else:
+                print(f"Ignored file: {blob.name}")
+    except Exception as e:
+        print(f"Error fetching images: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+    print(f"Images fetched: {images}")
+    return JsonResponse({'images': images})
+
+
+@csrf_exempt
+def delete_user_image(request, image_name):
+    id_token = request.headers.get('Authorization')
+    if not id_token or not id_token.startswith('Bearer '):
+        return JsonResponse({'error': 'Unauthorized - No token provided'}, status=401)
+
+    # Split the header into 'Bearer' and the token
+    _, id_token = id_token.split(' ', 1)
+    user_info = verify_firebase_token(id_token)
+    if not user_info:
+        return JsonResponse({'error': 'Unauthorized - Token invalid'}, status=401)
+
+    user_id = user_info['uid']
+    bucket = storage.bucket()
+    blob_path = f"{user_id}/{image_name}"
+    blob = bucket.blob(blob_path)
+
+    if blob.exists():
+        blob.delete()
+        return JsonResponse({"message": f"Image '{image_name}' deleted successfully"})
+    else:
+        return JsonResponse({"error": f"Image '{image_name}' not found"}, status=404)
+
+@csrf_exempt
+def upload_pdf_for_images(request):
+    # Get the ID token from the request header
+    auth_header = request.META.get('HTTP_AUTHORIZATION')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return JsonResponse({'error': 'Unauthorized - Token missing or invalid'}, status=401)
+
+    # Extract the ID token and verify it
+    id_token = auth_header.split('Bearer ')[1]
+    user_info = verify_firebase_token(id_token)
+    if not user_info:
+        return JsonResponse({'error': 'Invalid token - Verification failed'}, status=401)
+    
+    user_id = user_info['uid']
+
+    if request.method == 'POST':
+        try:
+            pdf_file = request.FILES.get('file')
+            if not pdf_file:
+                return JsonResponse({'error': 'No file provided'}, status=400)
+
+            # Save the uploaded PDF to a temporary file
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
+                for chunk in pdf_file.chunks():
+                    tmp.write(chunk)
+                tmp.flush()
+
+                # Extract images and combine them into a single PDF
+                doc = fitz.open(tmp.name)
+                images = []
+                for page_num, page in enumerate(doc):
+                    image_list = page.get_images(full=True)
+                    for img_index, img in enumerate(image_list):
+                        xref = img[0]
+                        base_image = doc.extract_image(xref)
+                        image_bytes = base_image["image"]
+                        image = Image.open(io.BytesIO(image_bytes))
+                        images.append(image)
+
+                # Combine images into a single PDF
+                combined_pdf_bytes = io.BytesIO()
+                images[0].save(combined_pdf_bytes, format="PDF", save_all=True, append_images=images[1:])
+                combined_pdf_bytes.seek(0)  # Move to the start of the StringIO buffer
+                combined_pdf_name = f"{user_id}/{pdf_file.name}_combined_images.pdf"
+                bucket = storage.bucket()
+                blob = bucket.blob(combined_pdf_name)
+                blob.upload_from_file(combined_pdf_bytes, content_type='application/pdf')
+
+                doc.close()  # Make sure to close the document
+
+            return JsonResponse({
+                'combined_pdf_url': blob.generate_signed_url(timedelta(seconds=300), method='GET')
+            })
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+        finally:
+            # Cleanup the temporary file
+            if 'tmp' in locals() and os.path.exists(tmp.name):  # Check if tmp is defined and file exists
+                os.unlink(tmp.name)  # Delete the temp file
 
     return JsonResponse({'error': 'Invalid method'}, status=405)

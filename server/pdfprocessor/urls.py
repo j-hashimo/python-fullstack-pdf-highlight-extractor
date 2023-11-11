@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import upload_pdf, get_highlights, get_all_pdfs, delete_pdf, delete_highlight, upload_pdf_for_images, get_all_highlights, upload_highlights
+from .views import upload_pdf, get_highlights, get_all_pdfs, delete_pdf, delete_highlight, upload_pdf_for_images, get_all_highlights, upload_highlights, get_user_images, delete_user_image
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -16,7 +16,8 @@ urlpatterns = [
     path('highlights/all/', get_all_highlights, name='get-all-highlights'),
     path('highlights/delete/<str:highlight_name>/', delete_highlight, name='delete-highlight'),
     path('highlights/upload/', upload_highlights, name='upload-highlights'),
-
+     path('images/all/', get_user_images, name='get-user-images'),
+    path('images/delete/<path:image_name>/', delete_user_image, name='delete-user-image'),
 ]
 
 if settings.DEBUG:

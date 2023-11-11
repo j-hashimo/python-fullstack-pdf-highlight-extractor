@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { getAuth } from 'firebase/auth'; // Import getAuth
+import { useNavigate } from 'react-router-dom'; // Import useNavigate hook
 
 function UploadForImages() {
     const [file, setFile] = useState(null);
     const [pdfUrl, setPdfUrl] = useState("");
     const auth = getAuth(); // Get the authentication instance
-
+    const [imagesUploaded, setImagesUploaded] = useState(false); // New state to track if images have been uploaded
+    const navigate = useNavigate(); // Hook for navigation
     const onFileChange = (e) => {
         setFile(e.target.files[0]);
     };
@@ -34,7 +36,14 @@ function UploadForImages() {
             console.error("User not authenticated");
             // Redirect to login or handle accordingly
         }
+        // After successfully uploading the images, set imagesUploaded to true
+        setImagesUploaded(true);
     };
+
+    const goToImagesList = () => {
+        navigate('/images'); // This should be the URL path you set for ImagesList in App.js
+    };
+
 
     return (
         <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center">
@@ -60,6 +69,14 @@ function UploadForImages() {
                     }
                 </div>
             </div>
+            {imagesUploaded && // Show this button only after images have been uploaded
+                <button
+                    className="mt-4 bg-purple-500 hover:bg-purple-600 p-2 rounded-lg w-48 text-center"
+                    onClick={goToImagesList}
+                >
+                    View Uploaded Images
+                </button>
+            }
         </div>
     );
 }

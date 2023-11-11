@@ -13,7 +13,7 @@ import { auth } from './components/firebase';
 
 import FirebaseUIAuth from './components/FirebaseUIAuth';
 import { onAuthStateChanged } from 'firebase/auth';
-
+import ImagesList from './components/ImagesList';
 
 function App() {
 
@@ -35,13 +35,12 @@ function App() {
       <Routes>
         <Route path="/login" element={<FirebaseUIAuth />} />
         <Route path="/" element={isAuthenticated ? <HomePage /> : <Navigate to="/login" />} />
-        
-        
         <Route path="/upload" element={<UploadComponent />} />
         <Route path="/view" element={<HighlightViewComponent />} />
         <Route path="/pdfview" element={<PDFList />} />
         <Route path="/upload_for_images" element={<UploadForImages />} />
         <Route path="/download/:token" element={<DownloadHighlights />} />
+        <Route path="/images" element={<ImagesList />} /> {/* New route for viewing images */}
       </Routes>
     </ToastProvider>
   );
