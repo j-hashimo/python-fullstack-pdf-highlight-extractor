@@ -1,4 +1,6 @@
+First start up the server by cd to the server folder and run: python manage.py runserver
 
+Then start up the client by cd to the client folder and run: npm run start
 
 ```
 ```
