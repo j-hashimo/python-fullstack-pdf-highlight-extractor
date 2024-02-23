@@ -47,6 +47,7 @@ const HomePage = () => {
                 </Box>
                 <Box>
                     <div className="text-center">
+                        
                         <Link to="/upload_for_images" className="mt-8 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded">Upload images</Link>
                     </div>
                 </Box>

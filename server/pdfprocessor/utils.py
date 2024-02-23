@@ -23,7 +23,8 @@ def extract_highlights(file_path):
                 # Rectangle instance, representing the bbox that encloses the annotation
                 rect = annot.rect
                 words = page.get_textbox(rect)
-                highlights.append(words)
+                if words:  # Ensure there's text being added
+                    highlights.append(words.strip())  # Add each highlight as a separate element
 
     return highlights
 

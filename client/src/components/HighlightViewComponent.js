@@ -47,7 +47,9 @@ const HighlightViewComponent = () => {
             <h2 className="text-2xl mb-4">Extracted Highlights</h2>
             <div>
                 {highlights.map((highlight, index) => (
-                    <p key={index}>{highlight}</p>
+                    <div key={index} style={{ marginBottom: '1rem' }}>
+                        {highlight}
+                    </div>
                 ))}
             </div>
             <div className="mt-8">
