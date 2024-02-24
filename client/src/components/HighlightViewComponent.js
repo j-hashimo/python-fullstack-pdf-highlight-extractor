@@ -11,19 +11,17 @@ const HighlightViewComponent = () => {
     console.log("PDF Title: ", pdfTitle); // Add this line to check the value of pdfTitle
     const saveHighlightsToFile = async () => {
         const title = pdfTitle || 'default_title'; // Provide a default value if pdfTitle is not set
-        // ... existing code to save highlights ...
-        // Convert highlights to a string
-        const highlightsText = highlights.join('\n');
+        // Convert highlights to a string with a double newline character for separation
+        const highlightsText = highlights.join('\n\n');
         
         // Convert text to a Blob
         const blob = new Blob([highlightsText], { type: 'text/plain' });
-
+    
         // Create a FormData object to send the file
         const formData = new FormData();
         formData.append('file', blob);
-        formData.append('title', pdfTitle); // Use pdfTitle when appending to FormData
-
-
+        formData.append('title', title); // Use the title variable
+    
         try {
             const idToken = await auth.currentUser.getIdToken(true);
             const response = await axios.post('http://localhost:8000/pdf/highlights/upload/', formData, {
@@ -32,7 +30,7 @@ const HighlightViewComponent = () => {
                     'Content-Type': 'multipart/form-data'
                 }
             });
-
+    
             // Handle the response from the server
             console.log(response.data);
             alert('Highlights saved successfully!');
@@ -41,6 +39,7 @@ const HighlightViewComponent = () => {
             alert('Failed to save highlights.');
         }
     };
+    
 
     return (
         <div className="min-h-screen bg-gray-900 text-white p-10">
