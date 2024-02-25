@@ -51,9 +51,9 @@ function HighlightsList() {
                     <div className="font-bold text-xl mb-2 break-words">{highlightFile.name}</div>
                     <div className="text-gray-700 text-base">{highlightFile.date}</div>
                     <p className="text-gray-700 text-base">
-                        <a href={highlightFile.url} className="text-blue-500 mr-3">
+                        <a href={highlightFile.url} className="text-blue-500 mr-3" target="_blank" rel="noopener noreferrer">
                             Download Highlights
-                        </a> {/* NEED TO MAKE THE DOWNLOAD APPEAR IN A NEW TAB */}}
+                        </a>
                         <button onClick={() => deleteHighlight(highlightFile.name)} className="text-red-500 bg-white hover:bg-red-500 hover:text-white border border-red-500 font-bold py-2 px-4 rounded">
                             Delete Highlights
                         </button>
