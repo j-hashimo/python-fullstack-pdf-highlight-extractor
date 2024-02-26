@@ -60,9 +60,10 @@ function PdfList() {
                                 <div className="font-bold text-xl mb-2">{pdf.name}</div>
                                 <div className="text-gray-700 text-base">{pdf.date}</div>
                                 <p className="text-gray-700 text-base">
-                                    <a href={pdf.url} className="text-blue-500 hover:text-blue-700 mr-3">
+                                    <a href={pdf.url} className="text-blue-500 hover:text-blue-700 mr-3" target="_blank" rel="noopener noreferrer">
                                         Download PDF
                                     </a>
+
                                     <button onClick={() => deletePdf(pdf.original_name)} className="text-red-500 hover:text-white border border-red-500 hover:bg-red-500 font-bold py-2 px-4 rounded">
                                         Delete PDF
                                     </button>
