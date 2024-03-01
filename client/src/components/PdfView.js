@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { getAuth } from 'firebase/auth';
 import HighlightsList from './HighlightsList';
+import ImagesList from './ImagesList'; 
+
 function PdfList() {
     const [pdfs, setPdfs] = useState([]);
     const auth = getAuth();
@@ -78,6 +80,8 @@ function PdfList() {
                     <h2 className="text-2xl mb-4">Your Highlight Files</h2>
                     <HighlightsList /> {/* Render the HighlightsList component */}
                 </div>
+                
+                <ImagesList/>
 
             </div>
         </div>
