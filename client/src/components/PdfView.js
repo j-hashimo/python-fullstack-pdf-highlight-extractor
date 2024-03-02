@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { getAuth } from 'firebase/auth';
 import HighlightsList from './HighlightsList';
-import ImagesList from './ImagesList'; 
+import ImagesList from './ImagesList';
 
 function PdfList() {
     const [pdfs, setPdfs] = useState([]);
     const auth = getAuth();
-
+    const [showPdfs, setShowPdfs] = useState(false);
+    const [showHighlights, setShowHighlights] = useState(false);
+    const [showImages, setShowImages] = useState(false);
     useEffect(() => {
         fetchPdfs();
     }, []);
@@ -49,13 +51,30 @@ function PdfList() {
         }
     };
 
+
+    const toggleAccordion = (accordion) => {
+        if (accordion === 'pdfs') {
+          setShowPdfs(!showPdfs);
+        } else if (accordion === 'highlights') {
+          setShowHighlights(!showHighlights);
+        } else if (accordion === 'images') {
+          setShowImages(!showImages);
+        }
+      };
+    
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-10">
-            <div className="flex flex-wrap -mx-4">
-                
-                {/* PDFs Section */}
-                <div className="my-4 px-4 w-full lg:w-1/2">
-                    <h2 className="text-2xl mb-4">Your PDFs</h2>
+        <div className="min-h-screen bg-gray-900 text-white p-4 md:p-10">
+          <div className="space-y-6">
+            {/* PDFs Accordion */}
+            <div>
+              <button
+                onClick={() => toggleAccordion('pdfs')}
+                className="text-left w-full text-2xl py-2 px-4 bg-gray-800 hover:bg-gray-700 rounded-lg focus:outline-none"
+              >
+                Your PDFs
+              </button>
+              {showPdfs && (
+                <div className="mt-4">
                     <div className="grid grid-cols-1 gap-4">
                         {pdfs.map((pdf, index) => (
                             <div key={index} className="max-w-sm rounded overflow-hidden shadow-lg p-6 bg-white text-gray-900">
@@ -74,18 +93,41 @@ function PdfList() {
                         ))}
                     </div>
                 </div>
-                
-                {/* Highlights Section */}
-                <div className="my-4 px-4 w-full lg:w-1/2">
-                    <h2 className="text-2xl mb-4">Your Highlight Files</h2>
-                    <HighlightsList /> {/* Render the HighlightsList component */}
-                </div>
-                
-                <ImagesList/>
-
+              )}
             </div>
+    
+            {/* Highlights Accordion */}
+            <div>
+              <button
+                onClick={() => toggleAccordion('highlights')}
+                className="text-left w-full text-2xl py-2 px-4 bg-gray-800 hover:bg-gray-700 rounded-lg focus:outline-none"
+              >
+                Highlight Files
+              </button>
+              {showHighlights && (
+                <div className="mt-4">
+                  <HighlightsList />
+                </div>
+              )}
+            </div>
+    
+            {/* Images Accordion */}
+            <div>
+              <button
+                onClick={() => toggleAccordion('images')}
+                className="text-left w-full text-2xl py-2 px-4 bg-gray-800 hover:bg-gray-700 rounded-lg focus:outline-none"
+              >
+                Your Images
+              </button>
+              {showImages && (
+                <div className="mt-4">
+                  <ImagesList />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-    );
-}
-
+      );
+    }
+    
 export default PdfList;
