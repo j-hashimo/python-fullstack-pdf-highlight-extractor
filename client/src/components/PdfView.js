@@ -3,6 +3,7 @@ import axios from 'axios';
 import { getAuth } from 'firebase/auth';
 import HighlightsList from './HighlightsList';
 import ImagesList from './ImagesList';
+import { ChevronDownIcon, ChevronUpIcon } from '@chakra-ui/icons';
 
 function PdfList() {
     const [pdfs, setPdfs] = useState([]);
@@ -69,9 +70,9 @@ function PdfList() {
             <div>
               <button
                 onClick={() => toggleAccordion('pdfs')}
-                className="text-left w-full text-2xl py-2 px-4 bg-gray-800 hover:bg-gray-700 rounded-lg focus:outline-none"
+                className="text-left w-full text-2xl py-2 px-4 bg-gray-800 hover:bg-gray-700 rounded-lg focus:outline-none flex justify-between items-center"
               >
-                Your PDFs
+                Your PDFs {showPdfs ? <ChevronUpIcon /> : <ChevronDownIcon />}
               </button>
               {showPdfs && (
                 <div className="mt-4">
@@ -100,9 +101,9 @@ function PdfList() {
             <div>
               <button
                 onClick={() => toggleAccordion('highlights')}
-                className="text-left w-full text-2xl py-2 px-4 bg-gray-800 hover:bg-gray-700 rounded-lg focus:outline-none"
+                className="text-left w-full text-2xl py-2 px-4 bg-gray-800 hover:bg-gray-700 rounded-lg focus:outline-none flex justify-between items-center"
               >
-                Highlight Files
+                Highlight Files {showHighlights ? <ChevronUpIcon /> : <ChevronDownIcon />}
               </button>
               {showHighlights && (
                 <div className="mt-4">
@@ -115,9 +116,9 @@ function PdfList() {
             <div>
               <button
                 onClick={() => toggleAccordion('images')}
-                className="text-left w-full text-2xl py-2 px-4 bg-gray-800 hover:bg-gray-700 rounded-lg focus:outline-none"
+                className="text-left w-full text-2xl py-2 px-4 bg-gray-800 hover:bg-gray-700 rounded-lg focus:outline-none flex justify-between items-center"
               >
-                Your Images
+                Your Images {showImages ? <ChevronUpIcon /> : <ChevronDownIcon />}
               </button>
               {showImages && (
                 <div className="mt-4">
