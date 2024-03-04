@@ -8,6 +8,9 @@ from pdfminer.pdfpage import PDFPage
 # this highlight extractor using fitz works on documents highlighted using Adobe Acrobat Reader. In the Adobe Acrobat Reader app, the highlight is merely a colored overlay and doesn't actually contain the text of the highlight. So, this function uses the bounding box of the highlight to extract the text underneath it.
 
 # limitations: if you highlighted one cell of text that is organized in a grid table, it will not work
+
+#this is essentially the code that actually extracts the contents (highlights, images, etc.) from the pdf
+
 import fitz
 from PIL import Image
 
