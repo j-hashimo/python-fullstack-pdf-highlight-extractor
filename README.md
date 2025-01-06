@@ -2,6 +2,13 @@ First start up the server by cd to the server folder and run: python manage.py r
 
 Then start up the client by cd to the client folder and run: npm run start
 
+Highlight limitations:
+- if there are containers that have text, that text may not be highlighted
+- if there are various fonts, the text may not be highlighted
+
+
+
+
 ```
 ```
 python-fullstack-pdf-highlight-extractor
